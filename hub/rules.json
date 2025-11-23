@@ -1,0 +1,18 @@
+[
+  {
+    "name": "Garage opens → turn on living room light",
+    "trigger_device": "garage_main",
+    "trigger_field": "position",
+    "trigger_value": "open",
+    "action_device": "livingroom_light",
+    "action": "on"
+  },
+  {
+    "name": "Garage closes → turn off living room light",
+    "trigger_device": "garage_main",
+    "trigger_field": "position",
+    "trigger_value": "closed",
+    "action_device": "livingroom_light",
+    "action": "off"
+  }
+]
