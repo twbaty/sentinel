@@ -35,6 +35,14 @@ def save_state():
     with open(STATE_PATH, "w") as f:
         json.dump(DEVICE_STATE, f, indent=2)
 
+RULES_PATH = os.path.join(BASE_DIR, "rules.json")
+
+try:
+    with open(RULES_PATH, "r") as f:
+        RULES = json.load(f)
+except:
+    RULES = []
+
 
 # -------------------------------------------------------
 # MQTT Handlers
