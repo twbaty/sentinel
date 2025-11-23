@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sentinel Dashboard</title>
+</head>
+<body>
+    <h1>Sentinel Dashboard</h1>
+
+    {% for device_id, device in devices.items() %}
+        <div>
+            <h3>{{ device_id }} ({{ device.type }})</h3>
+
+            <p>State:
+                {% if device_id in state %}
+                    {{ state[device_id] }}
+                {% else %}
+                    <i>No data</i>
+                {% endif %}
+            </p>
+
+            <a href="/command/{{ device_id }}/on">Turn ON</a> |
+            <a href="/command/{{ device_id }}/off">Turn OFF</a>
+        </div>
+        <hr>
+    {% endfor %}
+
+</body>
+</html>
