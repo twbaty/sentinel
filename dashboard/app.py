@@ -3,7 +3,9 @@ import json
 import os
 
 # Paths
-HUB_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "hub")
+ROOT_DIR = os.path.dirname(os.path.dirname(__file__))   # sentinel/
+HUB_DIR = os.path.join(ROOT_DIR, "hub")                 # sentinel/hub
+
 STATE_PATH = os.path.join(HUB_DIR, "state.json")
 DEVICES_PATH = os.path.join(HUB_DIR, "devices.json")
 
