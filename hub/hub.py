@@ -2,6 +2,19 @@ import json
 import paho.mqtt.client as mqtt
 import os
 
+def send_command(device_id, command_dict):
+    device = DEVICES.get(device_id)
+    if not device:
+        print(f"[Sentinel] Unknown device: {device_id}")
+        return
+
+    topic = device["topics"]["command"]
+    payload = json.dumps(command_dict)
+
+    mqtt_client.publish(topic, payload)
+    print(f"[Sentinel] Sent command to {device_id}: {payload}")
+
+
 REGISTRY_PATH = os.path.join(os.path.dirname(__file__), "devices.json")
 
 MQTT_BROKER = "localhost"
