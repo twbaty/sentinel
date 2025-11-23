@@ -5,7 +5,7 @@ BROKER = "localhost"
 STATE_TOPIC = "sentinel/garage/main/state"
 CMD_TOPIC = "sentinel/garage/main/command"
 
-position = "closed"   # default
+position = "closed"
 
 
 def publish_state(client):
@@ -26,11 +26,12 @@ def on_message(client, userdata, msg):
     if not action:
         return
 
-    if action == "on":
+    if action == "open":
         position = "open"
-
-    elif action == "off":
+    elif action == "close":
         position = "closed"
+    else:
+        return
 
     publish_state(client)
 
@@ -48,7 +49,7 @@ def main():
     publish_state(client)
 
     while True:
-        pass   # keeps script alive
+        pass
 
 
 if __name__ == "__main__":
