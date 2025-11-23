@@ -42,6 +42,14 @@ def main():
     client.connect("localhost", 1883, 60)
     client.loop_forever()
 
+import threading, time, json
+
+def heartbeat():
+    while True:
+        time.sleep(1)
+        client.publish(STATE_TOPIC, json.dumps(current_state))
+
+threading.Thread(target=heartbeat, daemon=True).start()
 
 if __name__ == "__main__":
     main()
