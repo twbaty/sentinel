@@ -17,23 +17,37 @@
 
 <h1>Sentinel Dashboard</h1>
 
-{% for name, device in devices.items() %}
-<div class="device-box">
-    <h3>{{ name }} ({{ device.class }})</h3>
+<div id="devices">
+{% for name, info in devices.items() %}
+    <div class="device-box" id="box-{{ name }}">
+        <h3>{{ name }} ({{ info.class }})</h3>
 
-    {% if device.last_state %}
         <strong>State:</strong>
-        <pre>{{ device.last_state }}</pre>
-    {% else %}
-        <strong>State:</strong> <em>No Data</em>
-    {% endif %}
+        <pre id="state-{{ name }}">{{ live_state.get(name) or "No Data" }}</pre>
 
-    <p>
-        <a href="/command/{{ name }}/on">Turn ON</a> |
-        <a href="/command/{{ name }}/off">Turn OFF</a>
-    </p>
-</div>
+        <p>
+            <a href="/command/{{ name }}/on">Turn ON</a> |
+            <a href="/command/{{ name }}/off">Turn OFF</a>
+        </p>
+    </div>
 {% endfor %}
+</div>
+
+<script>
+// Auto-update using SSE
+const evt = new EventSource("/events");
+
+evt.onmessage = function (event) {
+    const update = JSON.parse(event.data);
+    const device = Object.keys(update)[0];
+    const state = update[device];
+
+    const el = document.getElementById("state-" + device);
+    if (el) {
+        el.textContent = JSON.stringify(state, null, 2);
+    }
+};
+</script>
 
 </body>
 </html>
