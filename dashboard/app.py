@@ -1,71 +1,65 @@
-from flask import Flask, render_template, redirect, url_for, Response, request
+from flask import Flask, render_template, redirect, url_for
 import json
-import time
-from pathlib import Path
+import sys
+import paho.mqtt.client as mqtt
+from queue import Queue
 
-ROOT = Path(__file__).resolve().parents[1]
-DEVICES_PATH = ROOT / "hub" / "devices.json"
-STATE_PATH = ROOT / "hub" / "state.json"
+app = Flask(__name__, template_folder="templates")
 
-app = Flask(__name__)
+# Shared queue for SSE events
+event_queue = Queue()
 
+### MQTT Setup ###
+mqtt_client = mqtt.Client(client_id="sentinel_dashboard")
+mqtt_client.connect("localhost")
+mqtt_client.loop_start()      # <<< REQUIRED
 
-def load_json(path, default):
-    if not path.exists():
-        return default
-    try:
-        with open(path) as f:
-            return json.load(f)
-    except:
-        return default
+### Load device configuration ###
+DEVICES_PATH = "hub/devices.json"
 
+def load_devices():
+    with open(DEVICES_PATH) as f:
+        return json.load(f)
 
 @app.route("/")
 def index():
-    devices = load_json(DEVICES_PATH, {})
-    state = load_json(STATE_PATH, {})
-    return render_template("index.html", devices=devices, state=state)
+    devices = load_devices()
+    return render_template("index.html", devices=devices)
 
+@app.route("/command/<device>/<action>")
+def command(device, action):
+    devices = load_devices()
 
-@app.route("/command/<device_id>/<action>")
-def send_command(device_id, action):
-    """
-    Dashboard → publishes to MQTT through hub.py
-    We publish indirectly via sentinel/dashboard/command
-    """
-    import paho.mqtt.publish as publish
+    if device not in devices:
+        return redirect(url_for("index"))
 
-    payload = {
-        "device_id": device_id,
-        "action": action
-    }
-    publish.single(
-        "sentinel/dashboard/command",
-        json.dumps(payload),
-        hostname="localhost"
-    )
+    topic = devices[device]["topics"]["command"]
+    payload = json.dumps({"action": action})
+
+    mqtt_client.publish(topic, payload)
+    print(f"[Dashboard] Published → {topic}: {payload}")
+
     return redirect(url_for("index"))
 
-
+### Server-Sent Events ###
 @app.route("/events")
 def events():
-    """
-    Server-Sent Events stream → pushes live device state updates
-    """
-    def event_stream():
-        last_state = {}
-
+    def generator():
         while True:
-            state = load_json(STATE_PATH, {})
+            data = event_queue.get()
+            yield f"data: {json.dumps(data)}\n\n"
+    return app.response_class(generator(), mimetype="text/event-stream")
 
-            if state != last_state:
-                yield f"data: {json.dumps(state)}\n\n"
-                last_state = state
-
-            time.sleep(1)
-
-    return Response(event_stream(), mimetype="text/event-stream")
-
-
+### Main entry ###
 if __name__ == "__main__":
-    app.run(debug=True, port=5050)
+    use_reloader = "--no-reload" not in sys.argv
+    debug_mode = not use_reloader
+
+    print(f"[Dashboard] Starting (reloader={use_reloader})")
+
+    app.run(
+        host="127.0.0.1",
+        port=5050,
+        debug=debug_mode,
+        use_reloader=use_reloader
+    )
