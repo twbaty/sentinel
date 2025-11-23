@@ -103,3 +103,88 @@ No Data
                         onclick="sendCmd('{{ name }}','open')">
                     ⬆ OPEN
                 </button>
+                <button class="btn btn-off" id="btn-off-{{ name }}"
+                        onclick="sendCmd('{{ name }}','close')">
+                    ⬇ CLOSE
+                </button>
+            </div>
+
+        {% elif device.class == "light" %}
+            <div>
+                <button class="btn btn-on" id="btn-on-{{ name }}"
+                        onclick="sendCmd('{{ name }}','on')">
+                    💡 ON
+                </button>
+                <button class="btn btn-off" id="btn-off-{{ name }}"
+                        onclick="sendCmd('{{ name }}','off')">
+                    💡 OFF
+                </button>
+            </div>
+
+        {% elif device.class == "fan" %}
+            <div>
+                <button class="btn btn-on" id="btn-on-{{ name }}"
+                        onclick="sendCmd('{{ name }}','on')">
+                    🌀 ON
+                </button>
+                <button class="btn btn-off" id="btn-off-{{ name }}"
+                        onclick="sendCmd('{{ name }}','off')">
+                    🌀 OFF
+                </button>
+            </div>
+
+        {% endif %}
+    </div>
+{% endfor %}
+</div>
+
+<script>
+function sendCmd(device, action) {
+    fetch(`/command/${device}/${action}`).catch(err => console.error(err));
+}
+
+const evt = new EventSource("/events");
+
+evt.onmessage = function(event) {
+    const msg = JSON.parse(event.data);
+    const name = msg.name;
+    const state = msg.state || {};
+
+    // Update JSON text
+    const pre = document.getElementById(`state-${name}`);
+    if (pre) pre.textContent = JSON.stringify(state, null, 2);
+
+    // Update lights and fans
+    if ("power" in state) {
+        const onBtn = document.getElementById(`btn-on-${name}`);
+        const offBtn = document.getElementById(`btn-off-${name}`);
+
+        if (state.power === "on") {
+            if (onBtn) onBtn.style.backgroundColor = "green";
+            if (offBtn) offBtn.style.backgroundColor = "gray";
+        } else {
+            if (onBtn) onBtn.style.backgroundColor = "gray";
+            if (offBtn) offBtn.style.backgroundColor = "red";
+        }
+    }
+
+    // Update garage door indicator
+    if ("position" in state) {
+        const indicator = document.getElementById(`door-indicator-${name}`);
+        if (indicator) {
+            if (state.position === "open") {
+                indicator.textContent = "OPEN";
+                indicator.classList.remove("door-closed");
+                indicator.classList.add("door-open");
+            } else {
+                indicator.textContent = "CLOSED";
+                indicator.classList.remove("door-open");
+                indicator.classList.add("door-closed");
+            }
+        }
+    }
+};
+</script>
+
+</body>
+</html>
