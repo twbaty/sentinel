@@ -1,106 +1,57 @@
-import os
 import json
 import time
+import threading
 import paho.mqtt.client as mqtt
+from pathlib import Path
 
-# ---------------------------------------------------------
-# Paths
-# ---------------------------------------------------------
+ROOT = Path(__file__).resolve().parents[1]
+DEVICES_PATH = ROOT / "hub" / "devices.json"
+STATE_PATH = ROOT / "hub" / "state.json"
+RULES_PATH = ROOT / "hub" / "rules.json"
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# ---------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------
 
-DEVICES_PATH = os.path.join(BASE_DIR, "devices.json")
-STATE_PATH = os.path.join(BASE_DIR, "state.json")
-RULES_PATH = os.path.join(BASE_DIR, "rules.json")
-REQUESTS_PATH = os.path.join(BASE_DIR, "requests.json")
-
-# ---------------------------------------------------------
-# Load Devices, State, Rules
-# ---------------------------------------------------------
-
-def load_devices():
+def load_json(path, default):
+    if not path.exists():
+        return default
     try:
-        with open(DEVICES_PATH) as f:
+        with open(path) as f:
             return json.load(f)
     except:
-        return {}
+        return default
 
-def load_state():
-    try:
-        with open(STATE_PATH) as f:
-            return json.load(f)
-    except:
-        return {}
+def save_json(path, data):
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
 
-def save_state(state):
-    with open(STATE_PATH, "w") as f:
-        json.dump(state, f, indent=2)
+# ---------------------------------------------------------------------
+# Device Class Behavior Map
+# ---------------------------------------------------------------------
 
-def load_rules():
-    try:
-        with open(RULES_PATH) as f:
-            return json.load(f)
-    except:
-        return []
+# Defines what actions a class supports, and what state fields it uses.
+CLASS_BEHAVIORS = {
 
-# ---------------------------------------------------------
-# Automation Engine
-# ---------------------------------------------------------
+    "light": {
+        "valid_actions": ["on", "off"],
+        "state_field": "power"
+    },
 
-def apply_rules(device_id, new_state, rules, mqtt_client, devices):
-    for rule in rules:
-        if rule.get("trigger_device") != device_id:
-            continue
+    "fan": {
+        "valid_actions": ["on", "off"],
+        "state_field": "power"
+    },
 
-        field = rule.get("trigger_field")
-        expected = rule.get("trigger_value")
+    "garage_door": {
+        "valid_actions": ["open", "close"],
+        "state_field": "position"
+    }
+}
 
-        if new_state.get(field) != expected:
-            continue
-
-        target = rule.get("action_device")
-        action = rule.get("action")
-        if not target or not action:
-            continue
-
-        topic = devices[target]["topics"]["command"]
-        payload = json.dumps({"action": action})
-
-        print(f"[Sentinel] Rule match: {rule['name']}")
-        mqtt_client.publish(topic, payload)
-
-# ---------------------------------------------------------
-# Dashboard Command Handling
-# ---------------------------------------------------------
-
-def check_pending_commands(mqtt_client, devices):
-    try:
-        with open(REQUESTS_PATH, "r") as f:
-            pending = json.load(f)
-    except:
-        pending = {}
-
-    if not pending:
-        return
-
-    for device_id, cmd in pending.items():
-        action = cmd.get("action")
-        if not action:
-            continue
-
-        topic = devices[device_id]["topics"]["command"]
-        payload = json.dumps({"action": action})
-
-        print(f"[Sentinel] Dashboard command → {device_id}: {payload}")
-        mqtt_client.publish(topic, payload)
-
-    # Clear requests after processing
-    with open(REQUESTS_PATH, "w") as f:
-        json.dump({}, f)
-
-# ---------------------------------------------------------
+# ---------------------------------------------------------------------
 # MQTT Callbacks
-# ---------------------------------------------------------
+# ---------------------------------------------------------------------
 
 def on_connect(client, userdata, flags, rc):
     print("[Sentinel] Connected to MQTT broker.")
@@ -108,54 +59,84 @@ def on_connect(client, userdata, flags, rc):
     print("[Sentinel] Subscribed to sentinel/#")
 
 def on_message(client, userdata, msg):
-    topic = msg.topic
-    payload = msg.payload.decode()
-
-    try:
-        data = json.loads(payload)
-    except:
-        return
-
     devices = userdata["devices"]
     state = userdata["state"]
-    rules = userdata["rules"]
 
-    # Match state topics
-    for dev_id, dev in devices.items():
-        if topic == dev["topics"]["state"]:
-            state[dev_id] = data
-            save_state(state)
+    topic = msg.topic
+    payload_raw = msg.payload.decode()
 
-            print(f"[Sentinel] Updated state for {dev_id}: {data}")
-
-            # run automation
-            apply_rules(dev_id, data, rules, client, devices)
+    # Dashboard-origin messages:
+    if topic == "sentinel/dashboard/command":
+        try:
+            packet = json.loads(payload_raw)
+        except:
             return
 
-# ---------------------------------------------------------
+        device_id = packet.get("device_id")
+        action = packet.get("action")
+
+        if not device_id or device_id not in devices:
+            print(f"[Sentinel] Dashboard → invalid device: {device_id}")
+            return
+
+        device_class = devices[device_id]["class"]
+        behavior = CLASS_BEHAVIORS.get(device_class)
+
+        if not behavior:
+            print(f"[Sentinel] No behavior for class '{device_class}'")
+            return
+
+        # Validate the action against the class
+        if action not in behavior["valid_actions"]:
+            print(f"[Sentinel] Invalid action '{action}' for class '{device_class}'")
+            return
+
+        # Forward action to actual device topic
+        command_topic = devices[device_id]["topics"]["command"]
+        packet = { "action": action }
+        client.publish(command_topic, json.dumps(packet))
+
+        print(f"[Sentinel] Dashboard command → {device_id}: {packet}")
+        return
+
+    # State updates from devices:
+    for device_id, device in devices.items():
+        if topic == device["topics"]["state"]:
+            try:
+                data = json.loads(payload_raw)
+            except:
+                return
+
+            state[device_id] = data
+            save_json(STATE_PATH, state)
+
+            print(f"[Sentinel] Updated state for {device_id}: {data}")
+            return
+
+# ---------------------------------------------------------------------
 # Main
-# ---------------------------------------------------------
+# ---------------------------------------------------------------------
 
 def main():
-    devices = load_devices()
-    state = load_state()
-    rules = load_rules()
+    devices = load_json(DEVICES_PATH, {})
+    state = load_json(STATE_PATH, {})
+    rules = load_json(RULES_PATH, {})
 
-    print(f"[Sentinel] Loaded devices: {', '.join(devices.keys())}")
+    print("[Sentinel] Loaded devices:", ", ".join(devices.keys()))
 
-    client = mqtt.Client(userdata={"devices": devices, "state": state, "rules": rules})
-    client.on_connect = on_connect
-    client.on_message = on_message
+    mqtt_client = mqtt.Client(userdata={
+        "devices": devices,
+        "state": state,
+        "rules": rules
+    })
 
-    client.connect("localhost")
-    client.loop_start()
+    mqtt_client.on_connect = on_connect
+    mqtt_client.on_message = on_message
+
+    mqtt_client.connect("localhost", 1883, 60)
 
     print("[Sentinel] Hub running...")
-
-    # Main loop → check dashboard commands
-    while True:
-        check_pending_commands(client, devices)
-        time.sleep(0.2)
+    mqtt_client.loop_forever()
 
 
 if __name__ == "__main__":
