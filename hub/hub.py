@@ -94,11 +94,44 @@ def handle_message(topic, data):
             DEVICE_STATE[device_id] = data
             save_state()
             print(f"[Sentinel] Updated state for {device_id}: {data}")
+            apply_rules(device_id, data)
             return
 
     # Ignore anything that doesn't map to a state topic
     return
 
+def apply_rules(device_id, new_state):
+    for rule in RULES:
+        if rule["trigger_device"] != device_id:
+            continue
+
+        field = rule["trigger_field"]
+        expected = rule["trigger_value"]
+
+        if new_state.get(field) != expected:
+            continue
+
+        action_device = rule["action_device"]
+        action_value = rule["action"]
+
+        print(f"[Sentinel] Rule match: {rule['name']}")
+        send_command(action_device, {"action": action_value})
+def apply_rules(device_id, new_state):
+    for rule in RULES:
+        if rule["trigger_device"] != device_id:
+            continue
+
+        field = rule["trigger_field"]
+        expected = rule["trigger_value"]
+
+        if new_state.get(field) != expected:
+            continue
+
+        action_device = rule["action_device"]
+        action_value = rule["action"]
+
+        print(f"[Sentinel] Rule match: {rule['name']}")
+        send_command(action_device, {"action": action_value})
 
 # -------------------------------------------------------
 # Publish Commands
