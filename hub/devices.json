@@ -1,19 +1,41 @@
 {
-  "garage_main": {
-    "type": "garage_door",
+  "garage_door_main": {
+    "class": "garage_door",
     "topics": {
-      "state": "sentinel/garage/main/state",
-      "command": "sentinel/garage/main/command"
-    },
-    "last_state": null
+      "state": "sentinel/garage/main_door/state",
+      "command": "sentinel/garage/main_door/command"
+    }
+  },
+
+  "garage_light": {
+    "class": "light",
+    "topics": {
+      "state": "sentinel/garage/light/state",
+      "command": "sentinel/garage/light/command"
+    }
   },
 
   "livingroom_light": {
-    "type": "light",
+    "class": "light",
     "topics": {
-      "state": "sentinel/lights/livingroom/state",
-      "command": "sentinel/lights/livingroom/command"
-    },
-    "last_state": null
+      "state": "sentinel/livingroom/light/state",
+      "command": "sentinel/livingroom/light/command"
+    }
+  },
+
+  "livingroom_fan_motor": {
+    "class": "fan",
+    "topics": {
+      "state": "sentinel/livingroom/fan_motor/state",
+      "command": "sentinel/livingroom/fan_motor/command"
+    }
+  },
+
+  "livingroom_fan_light": {
+    "class": "light",
+    "topics": {
+      "state": "sentinel/livingroom/fan_light/state",
+      "command": "sentinel/livingroom/fan_light/command"
+    }
   }
 }
