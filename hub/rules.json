@@ -1,18 +1,22 @@
 [
   {
-    "name": "Garage opens → turn on living room light",
-    "trigger_device": "garage_main",
-    "trigger_field": "position",
-    "trigger_value": "open",
-    "action_device": "livingroom_light",
-    "action": "on"
+    "if": {
+      "topic": "sentinel/garage/main_door/state",
+      "equals": {"position": "open"}
+    },
+    "then": {
+      "device": "garage_light",
+      "action": "on"
+    }
   },
   {
-    "name": "Garage closes → turn off living room light",
-    "trigger_device": "garage_main",
-    "trigger_field": "position",
-    "trigger_value": "closed",
-    "action_device": "livingroom_light",
-    "action": "off"
+    "if": {
+      "topic": "sentinel/garage/main_door/state",
+      "equals": {"position": "closed"}
+    },
+    "then": {
+      "device": "garage_light",
+      "action": "off"
+    }
   }
 ]
