@@ -1,66 +1,42 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Sentinel Dashboard</title>
-  <meta charset="utf-8" />
-  <style>
-    body { font-family: Arial; background: #eee; padding: 20px; }
-    .device-box {
-      background: white; padding: 15px; margin-bottom: 15px;
-      border-radius: 6px; box-shadow: 0 0 5px rgba(0,0,0,0.2);
-    }
-    button { margin-right: 10px; padding: 6px 12px; }
-    pre { background: #222; color: #0f0; padding: 10px; }
-  </style>
+    <title>Sentinel Dashboard</title>
+    <style>
+        body { font-family: Arial; }
+        .device-box {
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin: 15px;
+            width: 300px;
+        }
+        .state {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+    </style>
 </head>
 <body>
 
 <h1>Sentinel Dashboard</h1>
-<div id="devices">
-{% for device_id, info in devices.items() %}
-  <div class="device-box" id="{{ device_id }}">
-    <h3>{{ device_id }} ({{ info.class }})</h3>
 
-    <div>
-      State:
-      <span class="state-field">
-        {{ state.get(device_id, "No data") }}
-      </span>
+{% for name, device in devices.items() %}
+<div class="device-box">
+    <h3>{{ name }} ({{ device.class }})</h3>
+
+    <div class="state">
+        {% if device.last_state %}
+            State:
+            <pre>{{ device.last_state }}</pre>
+        {% else %}
+            State: No Data
+        {% endif %}
     </div>
 
-    <div class="controls">
-      {% if info.class == "light" %}
-        <a href="/command/{{device_id}}/on"><button>Turn ON</button></a>
-        <a href="/command/{{device_id}}/off"><button>Turn OFF</button></a>
-      {% elif info.class == "fan" %}
-        <a href="/command/{{device_id}}/on"><button>Fan ON</button></a>
-        <a href="/command/{{device_id}}/off"><button>Fan OFF</button></a>
-      {% elif info.class == "garage_door" %}
-        <a href="/command/{{device_id}}/open"><button>Open</button></a>
-        <a href="/command/{{device_id}}/close"><button>Close</button></a>
-      {% endif %}
-    </div>
-  </div>
-{% endfor %}
+    <a href="/command/{{ name }}/on">Turn ON</a> |
+    <a href="/command/{{ name }}/off">Turn OFF</a>
 </div>
-
-<script>
-  const evtSource = new EventSource("/events");
-
-  evtSource.onmessage = function(event) {
-    let newState = JSON.parse(event.data);
-
-    for (const [device, data] of Object.entries(newState)) {
-      const box = document.getElementById(device);
-      if (!box) continue;
-
-      const stateField = box.querySelector(".state-field");
-      if (stateField) {
-        stateField.textContent = JSON.stringify(data);
-      }
-    }
-  };
-</script>
+{% endfor %}
 
 </body>
 </html>
