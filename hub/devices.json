@@ -1,0 +1,19 @@
+{
+  "garage_main": {
+    "type": "garage_door",
+    "topics": {
+      "state": "sentinel/garage/main/state",
+      "command": "sentinel/garage/main/command"
+    },
+    "last_state": null
+  },
+
+  "livingroom_light": {
+    "type": "light",
+    "topics": {
+      "state": "sentinel/lights/livingroom/state",
+      "command": "sentinel/lights/livingroom/command"
+    },
+    "last_state": null
+  }
+}
