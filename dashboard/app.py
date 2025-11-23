@@ -2,14 +2,22 @@ from flask import Flask, render_template, redirect, url_for
 import json
 import os
 
-# Paths
-ROOT_DIR = os.path.dirname(os.path.dirname(__file__))   # sentinel/
-HUB_DIR = os.path.join(ROOT_DIR, "hub")                 # sentinel/hub
+# ---------------------------------------------------------
+# Correct path resolution
+# ---------------------------------------------------------
+
+# /home/.../sentinel/dashboard/app.py
+# ROOT_DIR = /home/.../sentinel/
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# HUB_DIR = /home/.../sentinel/hub
+HUB_DIR = os.path.join(ROOT_DIR, "hub")
 
 STATE_PATH = os.path.join(HUB_DIR, "state.json")
 DEVICES_PATH = os.path.join(HUB_DIR, "devices.json")
 
 app = Flask(__name__)
+
 
 
 def load_state():
