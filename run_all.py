@@ -1,78 +1,76 @@
 import subprocess
+import sys
 import time
 import os
-import sys
-import signal
+from pathlib import Path
 
-# ---------------------------------------------------------
-# Paths
-# ---------------------------------------------------------
+ROOT = Path(__file__).resolve().parent
 
-BASE = os.path.dirname(os.path.abspath(__file__))
+# Process definitions: name, path to script
+PROCESSES = [
+    ("Hub", ROOT / "hub" / "hub.py"),
+    ("Dashboard", ROOT / "dashboard" / "app.py"),
+    ("GarageDoor", ROOT / "nodes" / "virtual_garage_door.py"),
+    ("FanMotor", ROOT / "nodes" / "virtual_fan_motor.py"),
+    ("FanLight", ROOT / "nodes" / "virtual_fan_light.py"),
+]
 
-HUB = os.path.join(BASE, "hub", "hub.py")
-GARAGE = os.path.join(BASE, "nodes", "virtual_garage.py")
+# Colors for output (for readability)
+COLORS = [
+    "\033[92m",  # Green
+    "\033[94m",  # Blue
+    "\033[93m",  # Yellow
+    "\033[96m",  # Cyan
+    "\033[95m",  # Magenta
+]
+RESET = "\033[0m"
 
-procs = []
 
-
-# ---------------------------------------------------------
-# Helper to start processes
-# ---------------------------------------------------------
-
-def start_process(label, path):
-    print(f"[Sentinel] Starting {label} ...")
-    p = subprocess.Popen(
-        [sys.executable, path],
+def spawn_process(name, script_path, color):
+    """
+    Launch script in unbuffered mode so logs appear live.
+    """
+    return subprocess.Popen(
+        [sys.executable, "-u", str(script_path)],
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
-        text=True
-    )
-    procs.append((label, p))
-    return p
+        text=True,
+        bufsize=1
+    ), name, color
 
-
-# ---------------------------------------------------------
-# Stream logs live
-# ---------------------------------------------------------
-
-def stream_output():
-    while True:
-        for label, p in procs:
-            if p.stdout:
-                line = p.stdout.readline()
-                if line:
-                    print(f"[{label}] {line}", end="")
-        time.sleep(0.05)
-
-
-# ---------------------------------------------------------
-# Main runner
-# ---------------------------------------------------------
 
 def main():
-    print("[Sentinel] Launching hub + virtual garage...")
+    print("[run_all] Starting Sentinel environment...\n")
 
-    # Start hub first
-    start_process("Hub", HUB)
-    time.sleep(1)  # give hub time to connect to MQTT
+    processes = []
 
-    # Start virtual garage
-    start_process("Garage", GARAGE)
+    # Start each process
+    for i, (name, script) in enumerate(PROCESSES):
+        if not script.exists():
+            print(f"[run_all] ERROR: {script} not found")
+            continue
 
-    print("[Sentinel] All services running.")
-    print("Press CTRL+C to stop everything.\n")
+        color = COLORS[i % len(COLORS)]
+        proc_tuple = spawn_process(name, script, color)
+        processes.append(proc_tuple)
+        print(f"[run_all] Launched {name}")
+
+    print("\n[run_all] All processes running. Press CTRL+C to stop.\n")
 
     try:
-        stream_output()
+        # Continuous output merging
+        while True:
+            for proc, name, color in processes:
+                line = proc.stdout.readline()
+                if line:
+                    print(f"{color}[{name}] {line.rstrip()}{RESET}")
+            time.sleep(0.02)
+
     except KeyboardInterrupt:
-        print("\n[Sentinel] Shutting down...")
-
-        for label, p in procs:
-            print(f"[Sentinel] Terminating {label} ...")
-            p.terminate()
-
-        print("[Sentinel] All processes stopped.")
+        print("\n[run_all] Shutting down processes...")
+        for proc, name, _ in processes:
+            proc.terminate()
+        print("[run_all] All stopped.")
 
 
 if __name__ == "__main__":
