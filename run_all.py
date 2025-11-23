@@ -1,80 +1,72 @@
+#!/usr/bin/env python3
 import subprocess
 import sys
-import time
-import os
 from pathlib import Path
+import time
+import signal
 
 ROOT = Path(__file__).resolve().parent
 
-# Process definitions: name, path to script
-PROCESSES = [
-    ("Hub", ROOT / "hub" / "hub.py"),
-    ("Dashboard", ROOT / "dashboard" / "app.py"),
-    ("GarageDoor", ROOT / "nodes" / "virtual_garage_door.py"),
-    ("FanMotor", ROOT / "nodes" / "virtual_fan_motor.py"),
-    ("FanLight", ROOT / "nodes" / "virtual_fan_light.py"),
-    ("GarageLight", ROOT / "nodes" / "virtual_garage_light.py"),
-    ("LivingroomLight", ROOT / "nodes" / "virtual_livingroom_light.py"),
-    ("LivingroomLight", ROOT / "nodes" / "virtual_livingroom_light.py"),
-]
+def launch(name, path, args=None):
+    if args is None:
+        args = []
 
-# Colors for output (for readability)
-COLORS = [
-    "\033[92m",  # Green
-    "\033[94m",  # Blue
-    "\033[93m",  # Yellow
-    "\033[96m",  # Cyan
-    "\033[95m",  # Magenta
-]
-RESET = "\033[0m"
+    print(f"[run_all] Launching {name}")
 
-
-def spawn_process(name, script_path, color):
-    """
-    Launch script in unbuffered mode so logs appear live.
-    """
+    # Launch each process with its own prefix using bash -c
     return subprocess.Popen(
-        [sys.executable, "-u", str(script_path)],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1
-    ), name, color
-
+        ["bash", "-c", f"python {path} {' '.join(args)}"],
+        stdout=sys.stdout,
+        stderr=sys.stderr,
+    )
 
 def main():
     print("[run_all] Starting Sentinel environment...\n")
 
     processes = []
 
-    # Start each process
-    for i, (name, script) in enumerate(PROCESSES):
-        if not script.exists():
-            print(f"[run_all] ERROR: {script} not found")
-            continue
+    # Hub
+    processes.append(
+        launch("Hub", ROOT / "hub" / "hub.py")
+    )
 
-        color = COLORS[i % len(COLORS)]
-        proc_tuple = spawn_process(name, script, color)
-        processes.append(proc_tuple)
-        print(f"[run_all] Launched {name}")
+    # Dashboard WITHOUT auto-reloader
+    processes.append(
+        launch("Dashboard", ROOT / "dashboard" / "app.py", ["--no-reload"])
+    )
+
+    # Nodes
+    processes.append(
+        launch("GarageDoor", ROOT / "nodes" / "virtual_garage_door.py")
+    )
+    processes.append(
+        launch("FanMotor", ROOT / "nodes" / "virtual_fan_motor.py")
+    )
+    processes.append(
+        launch("FanLight", ROOT / "nodes" / "virtual_fan_light.py")
+    )
+    processes.append(
+        launch("GarageLight", ROOT / "nodes" / "virtual_garage_light.py")
+    )
+    processes.append(
+        launch("LivingroomLight", ROOT / "nodes" / "virtual_livingroom_light.py")
+    )
 
     print("\n[run_all] All processes running. Press CTRL+C to stop.\n")
 
     try:
-        # Continuous output merging
+        # Keep run_all alive
         while True:
-            for proc, name, color in processes:
-                line = proc.stdout.readline()
-                if line:
-                    print(f"{color}[{name}] {line.rstrip()}{RESET}")
-            time.sleep(0.02)
-
+            time.sleep(1)
     except KeyboardInterrupt:
-        print("\n[run_all] Shutting down processes...")
-        for proc, name, _ in processes:
-            proc.terminate()
-        print("[run_all] All stopped.")
+        print("\n[run_all] Shutting down...")
 
+        for p in processes:
+            p.send_signal(signal.SIGINT)
+        for p in processes:
+            p.wait()
+
+        print("[run_all] Shutdown complete.")
 
 if __name__ == "__main__":
     main()
