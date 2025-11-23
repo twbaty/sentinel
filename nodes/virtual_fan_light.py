@@ -6,14 +6,10 @@ import paho.mqtt.client as mqtt
 STATE_TOPIC = "sentinel/livingroom/fan_light/state"
 COMMAND_TOPIC = "sentinel/livingroom/fan_light/command"
 
-current_state = {"power": "off"}  # start off
+current_state = {"power": "off"}
 
-# ------------------------------------------------------------
-# MQTT CALLBACKS
-# ------------------------------------------------------------
 
 def publish_state():
-    """Publish the current state."""
     client.publish(STATE_TOPIC, json.dumps(current_state))
     print(f"[VirtualFanLight] Published state: {current_state}")
 
@@ -21,7 +17,7 @@ def publish_state():
 def on_connect(client, userdata, flags, rc):
     print("[VirtualFanLight] Connected.")
     client.subscribe(COMMAND_TOPIC)
-    publish_state()  # broadcast immediately on connect
+    publish_state()
 
 
 def on_message(client, userdata, msg):
@@ -38,29 +34,20 @@ def on_message(client, userdata, msg):
     publish_state()
 
 
-# ------------------------------------------------------------
-# HEARTBEAT (publish state every second)
-# ------------------------------------------------------------
-
 def heartbeat():
     while True:
         time.sleep(1)
         publish_state()
 
-# ------------------------------------------------------------
-# MAIN
-# ------------------------------------------------------------
 
 client = mqtt.Client()
 client.on_connect = on_connect
 client.on_message = on_message
 
+
 def main():
     client.connect("localhost", 1883, 60)
-
-    # Start heartbeat BEFORE we enter loop_forever
     threading.Thread(target=heartbeat, daemon=True).start()
-
     client.loop_forever()
 
 
