@@ -2,27 +2,78 @@
 <html>
 <head>
     <title>Sentinel Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        .device {
+            border: 1px solid #ccc;
+            padding: 12px;
+            margin-bottom: 12px;
+            border-radius: 5px;
+        }
+        .device-title {
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        .state {
+            font-family: monospace;
+            color: #333;
+        }
+        .buttons a {
+            margin-right: 10px;
+        }
+    </style>
 </head>
+
 <body>
     <h1>Sentinel Dashboard</h1>
 
     {% for device_id, device in devices.items() %}
-        <div>
-            <h3>{{ device_id }} ({{ device.type }})</h3>
+    <div class="device">
+        <div class="device-title">
+            {{ device_id }} ({{ device["type"] }})
+        </div>
 
-            <p>State:
+        <p>
+            State:
+            <span id="state_{{ device_id }}" class="state">
                 {% if device_id in state %}
                     {{ state[device_id] }}
                 {% else %}
-                    <i>No data</i>
+                    No data
                 {% endif %}
-            </p>
+            </span>
+        </p>
 
-            <a href="/command/{{ device_id }}/on">Turn ON</a> |
-            <a href="/command/{{ device_id }}/off">Turn OFF</a>
+        <div class="buttons">
+            <a href="{{ url_for('send_command', device_id=device_id, action='on') }}">Turn ON</a>
+            <a href="{{ url_for('send_command', device_id=device_id, action='off') }}">Turn OFF</a>
         </div>
-        <hr>
+    </div>
     {% endfor %}
+
+    <!-- Live state updates via SSE -->
+    <script>
+        const evt = new EventSource("/events");
+
+        evt.onmessage = function (event) {
+            let data;
+            try {
+                data = JSON.parse(event.data);
+            } catch {
+                return;
+            }
+
+            for (const dev in data) {
+                const el = document.getElementById(`state_${dev}`);
+                if (el) {
+                    el.textContent = JSON.stringify(data[dev]);
+                }
+            }
+        };
+    </script>
 
 </body>
 </html>
