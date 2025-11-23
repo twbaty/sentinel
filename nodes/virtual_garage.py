@@ -1,6 +1,5 @@
 import paho.mqtt.client as mqtt
 import json
-import time
 
 BROKER = "localhost"
 STATE_TOPIC = "sentinel/garage/main/state"
@@ -15,7 +14,6 @@ def publish_state(client):
     print(f"[VirtualGarage] Published state: {payload}")
 
 
-# Handle commands if you want future expansion
 def on_message(client, userdata, msg):
     global position
 
@@ -28,12 +26,11 @@ def on_message(client, userdata, msg):
     if not action:
         return
 
-    if action == "open":
+    if action == "on":
         position = "open"
-    elif action == "close":
+
+    elif action == "off":
         position = "closed"
-    else:
-        return
 
     publish_state(client)
 
@@ -47,15 +44,11 @@ def main():
 
     client.loop_start()
 
-    print("[VirtualGarage] Running. Press ENTER to toggle.")
-
+    print("[VirtualGarage] Running. Waiting for commands...")
     publish_state(client)
 
     while True:
-        input()  # press ENTER to toggle
-        global position
-        position = "open" if position == "closed" else "closed"
-        publish_state(client)
+        pass   # keeps script alive
 
 
 if __name__ == "__main__":
