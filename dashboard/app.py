@@ -1,16 +1,13 @@
-from flask import Flask, render_template, redirect, url_for
+from flask import Flask, render_template, redirect, url_for, Response
 import json
 import os
+import time
 
 # ---------------------------------------------------------
-# Correct path resolution
+# Correct paths
 # ---------------------------------------------------------
 
-# /home/.../sentinel/dashboard/app.py
-# ROOT_DIR = /home/.../sentinel/
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-# HUB_DIR = /home/.../sentinel/hub
 HUB_DIR = os.path.join(ROOT_DIR, "hub")
 
 STATE_PATH = os.path.join(HUB_DIR, "state.json")
@@ -19,6 +16,16 @@ DEVICES_PATH = os.path.join(HUB_DIR, "devices.json")
 app = Flask(__name__)
 
 
+# ---------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------
+
+def load_devices():
+    try:
+        with open(DEVICES_PATH) as f:
+            return json.load(f)
+    except:
+        return {}
 
 def load_state():
     try:
@@ -28,10 +35,9 @@ def load_state():
         return {}
 
 
-def load_devices():
-    with open(DEVICES_PATH) as f:
-        return json.load(f)
-
+# ---------------------------------------------------------
+# Routes
+# ---------------------------------------------------------
 
 @app.route("/")
 def index():
@@ -41,18 +47,55 @@ def index():
 
 
 @app.route("/command/<device_id>/<action>")
-def send(device_id, action):
-    # Publish command by writing to a sentinel command topic
-    from sentinel.hub.hub import send_command
+def send_command(device_id, action):
+    """
+    For now this just writes a request file that the hub watches.
+    Later this will publish MQTT directly from the dashboard.
+    """
+    request_path = os.path.join(HUB_DIR, "requests.json")
 
-    send_command(device_id, {"action": action})
-    return redirect(url_for('index'))
+    try:
+        with open(request_path, "r") as f:
+            data = json.load(f)
+    except:
+        data = {}
+
+    data[device_id] = {"action": action}
+
+    with open(request_path, "w") as f:
+        json.dump(data, f, indent=2)
+
+    return redirect(url_for("index"))
 
 
-@app.route("/api/state")
-def api_state():
-    return load_state()
+# ---------------------------------------------------------
+# Server-Sent Events (SSE) for live updates
+# ---------------------------------------------------------
 
+def stream_states():
+    last = ""
+    while True:
+        try:
+            with open(STATE_PATH) as f:
+                current = f.read()
+        except:
+            current = ""
+
+        if current != last:
+            last = current
+            yield f"data: {current}\n\n"
+
+        time.sleep(0.5)
+
+
+@app.route("/events")
+def events():
+    return Response(stream_states(), mimetype="text/event-stream")
+
+
+# ---------------------------------------------------------
+# Main
+# ---------------------------------------------------------
 
 if __name__ == "__main__":
     app.run(debug=True, port=5050)
