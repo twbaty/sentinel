@@ -48,9 +48,15 @@
         </p>
 
         <div class="buttons">
-            <a href="{{ url_for('send_command', device_id=device_id, action='on') }}">Turn ON</a>
-            <a href="{{ url_for('send_command', device_id=device_id, action='off') }}">Turn OFF</a>
+            {% if device["type"] == "garage" %}
+                <a href="{{ url_for('send_command', device_id=device_id, action='open') }}">Open</a>
+                <a href="{{ url_for('send_command', device_id=device_id, action='close') }}">Close</a>
+            {% else %}
+                <a href="{{ url_for('send_command', device_id=device_id, action='on') }}">Turn ON</a>
+                <a href="{{ url_for('send_command', device_id=device_id, action='off') }}">Turn OFF</a>
+            {% endif %}
         </div>
+
     </div>
     {% endfor %}
 
