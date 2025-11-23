@@ -15,6 +15,7 @@ PROCESSES = [
     ("FanLight", ROOT / "nodes" / "virtual_fan_light.py"),
     ("GarageLight", ROOT / "nodes" / "virtual_garage_light.py"),
     ("LivingroomLight", ROOT / "nodes" / "virtual_livingroom_light.py"),
+    ("LivingroomLight", ROOT / "nodes" / "virtual_livingroom_light.py"),
 ]
 
 # Colors for output (for readability)
