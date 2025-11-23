@@ -30,7 +30,7 @@ def on_mqtt_message(client, userdata, msg):
 
     try:
         data = json.loads(payload)
-    except:
+    except Exception:
         return
 
     # Map topic → device
@@ -70,7 +70,8 @@ def command(device, action):
     topic = devices[device]["topics"]["command"]
     payload = json.dumps({"action": action})
     mqtt_client.publish(topic, payload)
-    return ("", 204)  # no redirect → no page jump
+    # No redirect → no page jump
+    return ("", 204)
 
 
 @app.route("/events")
