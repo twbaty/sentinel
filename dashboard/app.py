@@ -1,101 +1,71 @@
-from flask import Flask, render_template, redirect, url_for, Response
+from flask import Flask, render_template, redirect, url_for, Response, request
 import json
-import os
 import time
+from pathlib import Path
 
-# ---------------------------------------------------------
-# Correct paths
-# ---------------------------------------------------------
-
-ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-HUB_DIR = os.path.join(ROOT_DIR, "hub")
-
-STATE_PATH = os.path.join(HUB_DIR, "state.json")
-DEVICES_PATH = os.path.join(HUB_DIR, "devices.json")
+ROOT = Path(__file__).resolve().parents[1]
+DEVICES_PATH = ROOT / "hub" / "devices.json"
+STATE_PATH = ROOT / "hub" / "state.json"
 
 app = Flask(__name__)
 
 
-# ---------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------
-
-def load_devices():
+def load_json(path, default):
+    if not path.exists():
+        return default
     try:
-        with open(DEVICES_PATH) as f:
+        with open(path) as f:
             return json.load(f)
     except:
-        return {}
+        return default
 
-def load_state():
-    try:
-        with open(STATE_PATH) as f:
-            return json.load(f)
-    except:
-        return {}
-
-
-# ---------------------------------------------------------
-# Routes
-# ---------------------------------------------------------
 
 @app.route("/")
 def index():
-    devices = load_devices()
-    state = load_state()
+    devices = load_json(DEVICES_PATH, {})
+    state = load_json(STATE_PATH, {})
     return render_template("index.html", devices=devices, state=state)
 
 
 @app.route("/command/<device_id>/<action>")
 def send_command(device_id, action):
     """
-    For now this just writes a request file that the hub watches.
-    Later this will publish MQTT directly from the dashboard.
+    Dashboard → publishes to MQTT through hub.py
+    We publish indirectly via sentinel/dashboard/command
     """
-    request_path = os.path.join(HUB_DIR, "requests.json")
+    import paho.mqtt.publish as publish
 
-    try:
-        with open(request_path, "r") as f:
-            data = json.load(f)
-    except:
-        data = {}
-
-    data[device_id] = {"action": action}
-
-    with open(request_path, "w") as f:
-        json.dump(data, f, indent=2)
-
+    payload = {
+        "device_id": device_id,
+        "action": action
+    }
+    publish.single(
+        "sentinel/dashboard/command",
+        json.dumps(payload),
+        hostname="localhost"
+    )
     return redirect(url_for("index"))
-
-
-# ---------------------------------------------------------
-# Server-Sent Events (SSE) for live updates
-# ---------------------------------------------------------
-
-def stream_states():
-    last = ""
-    while True:
-        try:
-            with open(STATE_PATH) as f:
-                current = f.read()
-        except:
-            current = ""
-
-        if current != last:
-            last = current
-            yield f"data: {current}\n\n"
-
-        time.sleep(0.5)
 
 
 @app.route("/events")
 def events():
-    return Response(stream_states(), mimetype="text/event-stream")
+    """
+    Server-Sent Events stream → pushes live device state updates
+    """
+    def event_stream():
+        last_state = {}
 
+        while True:
+            state = load_json(STATE_PATH, {})
 
-# ---------------------------------------------------------
-# Main
-# ---------------------------------------------------------
+            if state != last_state:
+                yield f"data: {json.dumps(state)}\n\n"
+                last_state = state
+
+            time.sleep(1)
+
+    return Response(event_stream(), mimetype="text/event-stream")
+
 
 if __name__ == "__main__":
     app.run(debug=True, port=5050)
