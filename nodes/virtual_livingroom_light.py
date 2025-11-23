@@ -3,19 +3,26 @@ import time
 import threading
 import paho.mqtt.client as mqtt
 
+DEVICE_NAME = "VirtualLivingroomLight"
 STATE_TOPIC = "sentinel/livingroom/light/state"
 COMMAND_TOPIC = "sentinel/livingroom/light/command"
 
 current_state = {"power": "off"}
+last_published_state = None
+
+client = mqtt.Client()
 
 
 def publish_state():
-    client.publish(STATE_TOPIC, json.dumps(current_state))
-    print(f"[VirtualLivingroomLight] Published state: {current_state}")
+    global last_published_state
+    if current_state != last_published_state:
+        client.publish(STATE_TOPIC, json.dumps(current_state))
+        print(f"[{DEVICE_NAME}] Published state: {current_state}")
+        last_published_state = current_state.copy()
 
 
 def on_connect(client, userdata, flags, rc):
-    print("[VirtualLivingroomLight] Connected.")
+    print(f"[{DEVICE_NAME}] Connected.")
     client.subscribe(COMMAND_TOPIC)
     publish_state()
 
@@ -23,8 +30,7 @@ def on_connect(client, userdata, flags, rc):
 def on_message(client, userdata, msg):
     payload = json.loads(msg.payload.decode())
     action = payload.get("action")
-
-    print(f"[VirtualLivingroomLight] Received command: {payload}")
+    print(f"[{DEVICE_NAME}] Received command: {payload}")
 
     if action == "on":
         current_state["power"] = "on"
@@ -40,13 +46,11 @@ def heartbeat():
         publish_state()
 
 
-client = mqtt.Client()
-client.on_connect = on_connect
-client.on_message = on_message
-
-
 def main():
+    client.on_connect = on_connect
+    client.on_message = on_message
     client.connect("localhost", 1883, 60)
+
     threading.Thread(target=heartbeat, daemon=True).start()
     client.loop_forever()
 
