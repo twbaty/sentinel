@@ -3,96 +3,35 @@
 <head>
     <title>Sentinel Dashboard</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: #f3f3f3;
-            margin: 0;
-            padding: 20px;
-        }
+    body { font-family: Arial; }
 
-        h1 {
-            margin-top: 0;
-        }
+    .device-box {
+        border: 1px solid #ccc;
+        padding: 15px;
+        margin: 10px;
+        width: 350px;
+        height: 260px;                /* FIXED TILE HEIGHT */
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        box-sizing: border-box;
+    }
 
-        #devices-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-            gap: 12px;
-        }
+    .state-box {
+        background: #eee;
+        padding: 5px;
+        height: 120px;                /* FIXED JSON HEIGHT */
+        overflow-y: auto;             /* SCROLL WHEN NEEDED */
+        white-space: pre-wrap;
+        border-radius: 4px;
+        border: 1px solid #ddd;
+    }
 
-        .device-box {
-            background: #fff;
-            border: 1px solid #ccc;
-            padding: 14px;
-            border-radius: 6px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-        }
+    .button-row {
+        margin-top: 10px;
+    }
+</style>
 
-        .device-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-        }
-
-        .device-name {
-            font-weight: bold;
-        }
-
-        .device-class {
-            font-size: 0.8rem;
-            color: #666;
-        }
-
-        pre {
-            background: #eee;
-            padding: 5px;
-            margin: 6px 0 10px 0;
-            font-size: 0.8rem;
-            max-height: 100px;
-            overflow: auto;
-        }
-
-        .btn {
-            padding: 7px 12px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            color: #fff;
-            font-weight: bold;
-            margin-right: 6px;
-            font-size: 0.85rem;
-        }
-
-        .btn-on {
-            background-color: green;
-        }
-
-        .btn-off {
-            background-color: red;
-        }
-
-        .btn-disabled {
-            background-color: gray;
-        }
-
-        .door-indicator {
-            display: inline-block;
-            padding: 3px 10px;
-            border-radius: 999px;
-            font-size: 0.75rem;
-            color: #fff;
-            margin-left: 8px;
-        }
-
-        .door-closed {
-            background-color: green;
-        }
-
-        .door-open {
-            background-color: red;
-        }
-    </style>
 </head>
 <body>
 
