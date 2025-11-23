@@ -1,10 +1,17 @@
 import json
 import paho.mqtt.client as mqtt
+import os
+
+REGISTRY_PATH = os.path.join(os.path.dirname(__file__), "devices.json")
 
 MQTT_BROKER = "localhost"
 MQTT_PORT = 1883
 MQTT_TOPIC = "sentinel/#"   # Sentinel listens only to its own namespace
 
+with open(REGISTRY_PATH, "r") as f:
+    DEVICES = json.load(f)
+
+print("[Sentinel] Loaded devices:", ", ".join(DEVICES.keys()))
 
 # ----------------------------
 # MQTT EVENT HANDLERS
