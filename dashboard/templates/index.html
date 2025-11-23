@@ -7,13 +7,10 @@
         .device-box {
             border: 1px solid #ccc;
             padding: 15px;
-            margin: 15px;
-            width: 300px;
+            margin: 10px;
+            width: 350px;
         }
-        .state {
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
+        pre { background: #eee; padding: 5px; }
     </style>
 </head>
 <body>
@@ -24,17 +21,17 @@
 <div class="device-box">
     <h3>{{ name }} ({{ device.class }})</h3>
 
-    <div class="state">
-        {% if device.last_state %}
-            State:
-            <pre>{{ device.last_state }}</pre>
-        {% else %}
-            State: No Data
-        {% endif %}
-    </div>
+    {% if device.last_state %}
+        <strong>State:</strong>
+        <pre>{{ device.last_state }}</pre>
+    {% else %}
+        <strong>State:</strong> <em>No Data</em>
+    {% endif %}
 
-    <a href="/command/{{ name }}/on">Turn ON</a> |
-    <a href="/command/{{ name }}/off">Turn OFF</a>
+    <p>
+        <a href="/command/{{ name }}/on">Turn ON</a> |
+        <a href="/command/{{ name }}/off">Turn OFF</a>
+    </p>
 </div>
 {% endfor %}
 
