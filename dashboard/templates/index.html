@@ -4,30 +4,64 @@
     <title>Sentinel Dashboard</title>
     <style>
         body {
-            font-family: Arial;
+            font-family: Arial, sans-serif;
+            background: #f3f3f3;
+            margin: 0;
+            padding: 20px;
         }
+
+        h1 {
+            margin-top: 0;
+        }
+
+        #devices-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 12px;
+        }
+
         .device-box {
+            background: #fff;
             border: 1px solid #ccc;
-            padding: 15px;
-            margin: 10px;
-            width: 350px;
-            display: inline-block;
-            vertical-align: top;
+            padding: 14px;
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
         }
+
+        .device-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .device-name {
+            font-weight: bold;
+        }
+
+        .device-class {
+            font-size: 0.8rem;
+            color: #666;
+        }
+
         pre {
             background: #eee;
             padding: 5px;
+            margin: 6px 0 10px 0;
+            font-size: 0.8rem;
+            max-height: 100px;
+            overflow: auto;
         }
 
-        /* Button styles */
         .btn {
-            padding: 8px 14px;
+            padding: 7px 12px;
             border: none;
             border-radius: 5px;
             cursor: pointer;
-            color: white;
+            color: #fff;
             font-weight: bold;
-            margin-right: 8px;
+            margin-right: 6px;
+            font-size: 0.85rem;
         }
 
         .btn-on {
@@ -35,6 +69,27 @@
         }
 
         .btn-off {
+            background-color: red;
+        }
+
+        .btn-disabled {
+            background-color: gray;
+        }
+
+        .door-indicator {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            color: #fff;
+            margin-left: 8px;
+        }
+
+        .door-closed {
+            background-color: green;
+        }
+
+        .door-open {
             background-color: red;
         }
     </style>
@@ -46,19 +101,80 @@
 <div id="devices-container">
 {% for name, device in devices.items() %}
     <div class="device-box" id="box-{{ name }}">
-        <h3>{{ name }} ({{ device.class }})</h3>
+        <div class="device-header">
+            <div class="device-name">{{ name }}</div>
+            <div class="device-class">{{ device.class }}</div>
+        </div>
 
-        <strong>State:</strong>
+        <div>
+            <strong>State:</strong>
+        </div>
         <pre id="state-{{ name }}">
-{% if device.last_state %}
-{{ device.last_state | tojson(indent=2) }}
+{% if live_state.get(name) %}
+{{ live_state.get(name) | tojson(indent=2) }}
 {% else %}
 No Data
 {% endif %}
         </pre>
 
-        <button class="btn btn-on" onclick="sendCmd('{{ name }}','on')" id="btn-on-{{ name }}">ON</button>
-        <button class="btn btn-off" onclick="sendCmd('{{ name }}','off')" id="btn-off-{{ name }}">OFF</button>
+        {% if device.class == "garage_door" %}
+            <div>
+                <span id="door-indicator-{{ name }}" class="door-indicator door-closed">
+                    CLOSED
+                </span>
+            </div>
+            <div style="margin-top: 8px;">
+                <button class="btn btn-on"
+                        id="btn-on-{{ name }}"
+                        onclick="sendCmd('{{ name }}','open')">
+                    ⬆ OPEN
+                </button>
+                <button class="btn btn-off"
+                        id="btn-off-{{ name }}"
+                        onclick="sendCmd('{{ name }}','close')">
+                    ⬇ CLOSE
+                </button>
+            </div>
+        {% elif device.class == "light" %}
+            <div style="margin-top: 8px;">
+                <button class="btn btn-on"
+                        id="btn-on-{{ name }}"
+                        onclick="sendCmd('{{ name }}','on')">
+                    💡 ON
+                </button>
+                <button class="btn btn-off"
+                        id="btn-off-{{ name }}"
+                        onclick="sendCmd('{{ name }}','off')">
+                    💡 OFF
+                </button>
+            </div>
+        {% elif device.class == "fan" %}
+            <div style="margin-top: 8px;">
+                <button class="btn btn-on"
+                        id="btn-on-{{ name }}"
+                        onclick="sendCmd('{{ name }}','on')">
+                    🌀 ON
+                </button>
+                <button class="btn btn-off"
+                        id="btn-off-{{ name }}"
+                        onclick="sendCmd('{{ name }}','off')">
+                    🌀 OFF
+                </button>
+            </div>
+        {% else %}
+            <div style="margin-top: 8px;">
+                <button class="btn btn-on"
+                        id="btn-on-{{ name }}"
+                        onclick="sendCmd('{{ name }}','on')">
+                    ON
+                </button>
+                <button class="btn btn-off"
+                        id="btn-off-{{ name }}"
+                        onclick="sendCmd('{{ name }}','off')">
+                    OFF
+                </button>
+            </div>
+        {% endif %}
     </div>
 {% endfor %}
 </div>
@@ -69,23 +185,20 @@ function sendCmd(device, action) {
         .catch(err => console.error("Command error:", err));
 }
 
-// -------------------------------------------------------------
-// SERVER-SENT EVENTS: LIVE STATE UPDATES
-// -------------------------------------------------------------
 const evt = new EventSource("/events");
 
 evt.onmessage = function(event) {
-    const update = JSON.parse(event.data);
-    const name = update.name;
-    const state = update.state;
+    const msg = JSON.parse(event.data);
+    const name = msg.name;
+    const state = msg.state || {};
 
-    // 1. Update JSON display
+    // Update JSON state block
     const pre = document.getElementById(`state-${name}`);
     if (pre) {
         pre.textContent = JSON.stringify(state, null, 2);
     }
 
-    // 2. Update button colors
+    // Update ON/OFF button coloring based on "power"
     if ("power" in state) {
         const onBtn = document.getElementById(`btn-on-${name}`);
         const offBtn = document.getElementById(`btn-off-${name}`);
@@ -93,15 +206,26 @@ evt.onmessage = function(event) {
         if (state.power === "on") {
             if (onBtn) onBtn.style.backgroundColor = "green";
             if (offBtn) offBtn.style.backgroundColor = "gray";
-        } else {
+        } else if (state.power === "off") {
             if (onBtn) onBtn.style.backgroundColor = "gray";
             if (offBtn) offBtn.style.backgroundColor = "red";
         }
     }
 
+    // Garage door OPEN/CLOSED indicator
     if ("position" in state) {
-        // Example: garage door position → highlight open/close differently if desired
-        // For now, do nothing special.
+        const ind = document.getElementById(`door-indicator-${name}`);
+        if (ind) {
+            if (state.position === "closed") {
+                ind.textContent = "CLOSED";
+                ind.classList.remove("door-open");
+                ind.classList.add("door-closed");
+            } else {
+                ind.textContent = "OPEN";
+                ind.classList.remove("door-closed");
+                ind.classList.add("door-open");
+            }
+        }
     }
 };
 </script>
