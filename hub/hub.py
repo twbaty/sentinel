@@ -43,13 +43,18 @@ def on_message(client, userdata, msg):
 # ----------------------------
 
 def handle_message(topic, data):
-    """
-    This is where Sentinel will later:
-    - update device states
-    - trigger automation rules
-    - route commands to nodes
-    - log events
-    """
+    # Match incoming messages to devices
+    for device_id, device in DEVICES.items():
+        state_topic = device["topics"]["state"]
+
+        if topic == state_topic:
+            # Update in-memory state
+            device["last_state"] = data
+            print(f"[Sentinel] Updated state for {device_id}: {data}")
+            return
+
+    print(f"[Sentinel] No device matches topic {topic}")
+
 
     print(f"[Sentinel] Handling message on {topic}")
     print(f"[Sentinel] Data: {data}")
