@@ -1,37 +1,33 @@
-# sentinel
+Sentinel
+Modular MQTT-Driven Home Automation Sandbox
 
-Sentinel: Modular MQTT-Driven Home Automation Sandbox
+Sentinel is a lightweight, event-driven home-automation simulator built on:
 
-Sentinel is a lightweight, modular home-automation simulation platform.
-It includes:
+MQTT messaging
 
-A central Hub (rules engine, state manager)
+A centralized Hub + automation engine
 
-Multiple Virtual Devices (garage door, lights, fan motor/light)
+Virtual device nodes
 
-A real-time Dashboard (Flask + Server-Sent Events)
+A real-time Flask dashboard (SSE)
 
-A simple Automation Engine (rules.json)
+A file-based state & rules model
 
-A multi-process launcher (run_all.py)
+It’s designed as a learning and experimentation platform for IoT, distributed systems, and automation logic.
 
-The entire environment runs locally and communicates via MQTT.
-
-Sentinel is designed as a learning platform for event-driven IoT systems, automation logic, and distributed device behaviors.
-
-📦 Project Structure
+📂 Project Structure
 sentinel/
 │
 ├── hub/
-│   ├── hub.py           # Central rules engine + state tracking
-│   ├── devices.json     # Device metadata + MQTT topics
-│   ├── state.json       # Last-known state for every device
-│   └── rules.json       # Automation rules (if/then)
+│   ├── hub.py            # Rules engine + state manager
+│   ├── devices.json      # All device metadata + MQTT topics
+│   ├── state.json        # Last-known state for every device
+│   └── rules.json        # Automation logic (if/then rules)
 │
 ├── dashboard/
-│   ├── app.py           # Flask frontend + SSE event stream
+│   ├── app.py            # Flask UI + SSE event stream
 │   └── templates/
-│       └── index.html   # Tile-based UI for all devices
+│       └── index.html
 │
 ├── nodes/
 │   ├── virtual_garage_door.py
@@ -40,85 +36,85 @@ sentinel/
 │   ├── virtual_fan_motor.py
 │   └── virtual_fan_light.py
 │
-├── run_all.py           # Launch hub, dashboard, and all virtual devices
-└── README.md            # You are here
+├── run_all.py            # Launches hub + dashboard + all nodes
+└── README.md
 
 🚀 Running Sentinel
 
-Start everything with one command:
+Start everything:
 
 python run_all.py
 
 
 This launches:
 
-MQTT hub
+MQTT broker connection
 
-Flask dashboard
+Hub (rules + state)
 
-All virtual device processes
+Dashboard (via Flask)
 
-Heartbeat threads (devices publish state once per second)
+All virtual devices
 
-Dashboard runs at:
+Automatic heartbeat threads
+
+Access the UI:
 
 http://127.0.0.1:5050
 
 📡 How Sentinel Works
 
-Sentinel follows a simple event-driven pipeline:
+Sentinel is event-driven:
 
-Virtual Device → MQTT → Hub → Rules Engine → MQTT → Device → Dashboard (SSE)
+Device → MQTT → Hub → Rules Engine → MQTT → Device → Dashboard (SSE)
 
-1. Virtual Device
+1. Virtual Devices
 
-Each node:
+Each virtual device:
 
-connects to MQTT
+publishes state on connect
 
-subscribes to its command topic
+republishes every 1 second (heartbeat)
 
-publishes its state every 1s
+listens for commands
 
-updates state on commands (“on”, “off”, “open”, “close”)
+updates internal state when commands arrive
 
 2. Hub
 
-The hub:
+The Hub:
 
-subscribes to all sentinel/# topics
+subscribes to sentinel/#
 
-updates state.json
+writes every state update to state.json
 
-checks every state change against rules.json
+evaluates rules in rules.json
 
-publishes command actions for matching rules
+publishes actions for rules that match
 
 3. Dashboard
 
-The dashboard:
+The Dashboard:
 
-loads state.json on initial load
+loads state.json initially
 
-listens on /events for real-time updates via SSE
+listens live via Server-Sent Events (/events)
 
-updates UI elements instantly
+updates tiles instantly (no refresh)
 
-shows ON/OFF or OPEN/CLOSED indicators
+changes button colors and door indicators based on state
 
-allows issuing commands to devices
+🧠 Automation Rules
 
-🧠 Automation Rules (rules.json)
+Rules live in hub/rules.json.
 
-Rules are evaluated only when device state changes.
-
-Example:
+Example (garage door → light automation):
 
 [
   {
     "if": {
       "topic": "sentinel/garage/main_door/state",
-      "equals": {"position": "open"}
+      "equals": { "position": "open" }
     },
     "then": {
       "device": "garage_light",
@@ -128,7 +124,7 @@ Example:
   {
     "if": {
       "topic": "sentinel/garage/main_door/state",
-      "equals": {"position": "closed"}
+      "equals": { "position": "closed" }
     },
     "then": {
       "device": "garage_light",
@@ -138,35 +134,19 @@ Example:
 ]
 
 
-This creates a real automation:
+Rules fire only when state changes.
 
-When the garage door opens → turn on the garage light
-When it closes → turn it off
+📘 Device Definitions (devices.json)
 
-🖥️ Dashboard UI
+Each device specifies:
 
-The dashboard provides:
+class (garage_door, light, fan)
 
-A tile for each device
+its state topic
 
-JSON state display
+its command topic
 
-Color-coded indicators
-
-Lights → green/red buttons
-
-Garage door → OPEN/CLOSED badge
-
-Real-time refresh with no page reload
-
-Powered by Server-Sent Events:
-
-const evt = new EventSource("/events");
-evt.onmessage = function(event) { ... }
-
-🧩 Device Definition (devices.json)
-
-Defines each device and its MQTT topics:
+Example:
 
 "garage_light": {
   "class": "light",
@@ -176,103 +156,104 @@ Defines each device and its MQTT topics:
   }
 }
 
+🖥️ Dashboard Features
 
-Classes supported out of the box:
+Tile layout (fixed-sized boxes)
 
-garage_door
+Real-time updates via SSE
 
-light
+JSON state viewer
 
-fan
+ON/OFF or OPEN/CLOSED buttons
 
-📘 Virtual Device Behavior
+Buttons change color based on device state
 
-All devices share the same pattern:
+Garage door includes a visual status badge
 
-on_connect → publish initial state
-
-on_message → update state based on commands
-
-heartbeat thread → republish state every second
-
-Garage door uses:
-
-{"position": "open" | "closed"}
-
-
-Lights + fan use:
-
-{"power": "on" | "off"}
+Zero page reloads
 
 📝 Logging
 
-Hub logs state changes and rule triggers:
+Logs live under:
 
-logs/hub.log
+logs/
+│
+├── hub.log
+└── devices/
+    ├── garage_door_main.log
+    ├── garage_light.log
+    ├── livingroom_light.log
+    ├── livingroom_fan_motor.log
+    └── livingroom_fan_light.log
 
 
-Example:
+Hub logs:
 
-2025-01-13 14:22:01 - State change: garage_door_main → {"position": "open"}
-2025-01-13 14:22:01 - Rule fired: garage_light ← on
+every state update (only on change)
 
+every rule trigger
 
-Each virtual device logs to:
+command actions issued
 
-logs/<device>.log
+Devices log:
 
-📅 Roadmap (Next Planned Steps)
+commands received
 
-These are the logical next enhancements:
+state transitions
 
-V1.1
+connection events
 
-Rule dedupe (already implemented)
+📅 Roadmap
+V1.1 – Short-Term
 
-Quiet-mode for virtual devices (only log on change)
+UI polish (icons, spacing, animations)
 
-UI polish (icons, animations)
+Dark mode
 
-Dark mode toggle
+Better tile styling
 
-V2
+State validity indicators
+
+Clean logging toggle
+
+V2 – Medium-Term
 
 Multi-condition rules
 
-Timers / delays
+Delayed actions / timers
 
-Scenes (“Evening Mode”)
+“Scenes” (multi-device macros)
 
-Real device adapters (ESP32, Zigbee, etc.)
+Device adapters for real hardware
 
-Inbound state requests (MQTT “get” topics)
+Request-response support (MQTT “get” topics)
 
-✔ Current Status
+✔ Current Status (Milestone Snapshot)
 
-Sentinel is fully functional:
+As of this commit:
 
-All devices simulate correctly
+All device state flows are stable
 
-Hub automation is working
+Rules engine works (garage door → garage light verified)
 
-Dashboard is real-time and stable
+Dashboard updates live via SSE
 
-“Garage door → light on/off” rule works end-to-end
+No page flicker
 
-Repo now has structure suitable for expansion
+State changes color UI indicators function correctly
 
-You now have the foundation of a clean, modular home automation engine.
+Device heartbeat + auto-publish working
 
-If you want, I can also generate:
+Logging quieted (state-change only)
 
-CONTRIBUTING.md
+System is now stable enough to pause development and resume later without losing context.
 
-CHANGELOG.md
+If you want this:
 
-Full API documentation
+reformatted into separate docs (CONTRIBUTING.md, ARCHITECTURE.md, etc.),
 
-A “how to write your own device” guide
+turned into a GitHub Pages site,
 
-A versioned milestone roadmap
+or broken into versioned milestones,
 
-Just say the word.
+I can generate them.
