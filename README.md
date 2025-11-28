@@ -1,5 +1,6 @@
 Sentinel
 Modular MQTT-Driven Home Automation Sandbox
+Site: http://localhost:5050/
 
 Sentinel is a lightweight, event-driven home-automation simulator built on:
 
